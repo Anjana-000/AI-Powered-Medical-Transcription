@@ -1,0 +1,22 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Nurse Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="container">
+    <h2>Nurse Login</h2>
+    {% if error %}
+      <p style="color:red">{{ error }}</p>
+    {% endif %}
+    <form method="post" action="{{ url_for('nurse_login') }}">
+      <label>Username: <input name="username"></label><br>
+      <label>Password: <input name="password" type="password"></label><br>
+      <button type="submit">Login</button>
+    </form>
+  </div>
+</body>
+</html>

@@ -1,0 +1,81 @@
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f7fb;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    width: 700px;
+    margin: 50px auto;
+    background: white;
+    padding: 30px;
+    border-radius: 10px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+h2 {
+    text-align: center;
+    color: #2c3e50;
+    margin-top: 0;
+}
+
+.buttons {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 12px 20px;
+    margin: 5px;
+    font-size: 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+#startBtn {
+    background-color: #27ae60;
+    color: white;
+}
+
+#startBtn:hover:not(:disabled) {
+    background-color: #219150;
+}
+
+#stopBtn {
+    background-color: #c0392b;
+    color: white;
+}
+
+#stopBtn:hover:not(:disabled) {
+    background-color: #a93226;
+}
+
+button:disabled {
+    background-color: #bdc3c7;
+    cursor: not-allowed;
+}
+
+#status {
+    text-align: center;
+    font-weight: bold;
+    color: #e67e22;
+    margin: 15px 0;
+}
+
+h4 {
+    color: #34495e;
+    margin-bottom: 10px;
+}
+
+#output {
+    background-color: #f9f9f9;
+    padding: 15px;
+    min-height: 120px;
+    border-left: 4px solid #3498db;
+    line-height: 1.6;
+    color: #333;
+    white-space: pre-wrap; /* Preserves line breaks in transcription */
+}

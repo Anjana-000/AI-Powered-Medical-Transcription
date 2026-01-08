@@ -1,0 +1,35 @@
+<!doctype html>
+<html>
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width,initial-scale=1">
+	<title>Patients</title>
+	<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+	</head>
+<body>
+	<div class="container">
+		<header>
+			<h2>Patient List</h2>
+			<div>
+				<a href="{{ url_for('patient_new') }}">New Registration</a> |
+				<a href="{{ url_for('nurse_logout') }}">Logout</a>
+			</div>
+		</header>
+
+		<main>
+			{% if patients and patients|length > 0 %}
+				<ul>
+					{% for p in patients %}
+						<li>
+							<a href="{{ url_for('patient_view', pid=p.id) }}">{{ p.name or ('Patient ' ~ p.id) }}</a>
+							— Age: {{ p.age }}
+						</li>
+					{% endfor %}
+				</ul>
+			{% else %}
+				<p>No patients registered yet.</p>
+			{% endif %}
+		</main>
+	</div>
+</body>
+</html>
