@@ -28,9 +28,30 @@
                 <div id="output" class="text-display"></div>
             </section>
         </main>
+    <div class="post-actions">
+    <button id="editBtn" disabled>Edit</button>
+    <button id="copyBtn" disabled>Copy</button>
+
+    <div class="share-wrapper">
+        <button id="shareBtn" disabled>Share</button>
+        <div id="shareMenu" class="share-menu">
+            <button id="shareWhatsapp">WhatsApp</button>
+            <button id="shareGmail">Gmail</button>
+            <button id="shareSystem">More options</button>
+        </div>
     </div>
 
+    <button id="pdfBtn" disabled>Save PDF</button>
+</div>
+
+</div>
+
+    <button id="pdfBtn" disabled>Save PDF</button>
+</div>
+
+
     <script src="{{ url_for('static', filename='script.js') }}"></script>
-    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
 </body>
 </html>

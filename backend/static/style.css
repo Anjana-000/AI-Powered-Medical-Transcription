@@ -79,3 +79,46 @@ h4 {
     color: #333;
     white-space: pre-wrap; /* Preserves line breaks in transcription */
 }
+.post-actions {
+    text-align: center;
+    margin-top: 15px;
+}
+
+.post-actions button {
+    background-color: #2980b9;
+    color: white;
+}
+
+.post-actions button:hover:not(:disabled) {
+    background-color: #1f6391;
+}
+.share-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.share-menu {
+    display: none;
+    position: absolute;
+    top: 45px;
+    left: 0;
+    background: white;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    z-index: 10;
+}
+
+.share-menu button {
+    display: block;
+    width: 100%;
+    padding: 8px 12px;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+}
+
+.share-menu button:hover {
+    background-color: #f0f0f0;
+}

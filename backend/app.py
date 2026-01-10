@@ -140,13 +140,7 @@ def patient_edit(pid):
     return render_template("patient_profile.html", patient=patient, edit=True)
 
 
-@app.route("/patients/<int:pid>/transcribe")
-@require_nurse
-def patient_transcribe_page(pid):
-    patient = find_patient(pid)
-    if not patient:
-        return "Patient not found", 404
-    return render_template("transcription.html", patient=patient)
+# Note: transcription page template was removed; related UI route removed.
 
 
 @app.route("/transcribe", methods=["POST"])
