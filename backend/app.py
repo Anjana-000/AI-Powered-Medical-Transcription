@@ -1,197 +1,156 @@
 import os
-import json
 import whisper
 from datetime import datetime
-from flask import (
-    Flask,
-    render_template,
-    request,
-    jsonify,
-    redirect,
-    url_for,
-    session,
-)
+from flask import Flask, render_template, request, jsonify, redirect, url_for, current_app, send_from_directory
+from flask_pymongo import PyMongo
+from flask_login import LoginManager, login_required, current_user
+from werkzeug.security import generate_password_hash
+from bson.objectid import ObjectId
+
+from auth import auth, init_auth
+from models import Doctor, Patient
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret")
 
-# Load Whisper model (Small is a good balance of speed and accuracy)
-# Ensure you have 'ffmpeg' installed on your system for this to work.
+# MongoDB Config
+app.config["MONGO_URI"] = "mongodb://localhost:27017/cms_db"
+app.mongo = PyMongo(app)
+
+# Flask-Login Config
+login_manager = LoginManager()
+login_manager.login_view = 'auth.login'
+login_manager.init_app(app)
+
+# Initialize User Loader
+init_auth(login_manager)
+
+# Register Blueprint
+app.register_blueprint(auth)
+
+# Upload Config
+UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static", "uploads")
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Load Whisper (kept from original)
 model = whisper.load_model("small")
 
-# Simple JSON file to persist patient records for this prototype
-PATIENTS_FILE = os.path.join(os.path.dirname(__file__), "patients.json")
+# CLI Command to create initial doctor
+@app.cli.command("create-doctor")
+def create_doctor():
+    """Creates a default doctor user."""
+    username = input("Username: ")
+    email = input("Email: ")
+    password = input("Password: ")
+    hashed = generate_password_hash(password)
+    
+    if Doctor.find_by_username(app.mongo, username):
+        print("User already exists.")
+        return
 
-
-def load_patients():
-    if not os.path.exists(PATIENTS_FILE):
-        return []
-    with open(PATIENTS_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def save_patients(patients):
-    with open(PATIENTS_FILE, "w", encoding="utf-8") as f:
-        json.dump(patients, f, indent=2, ensure_ascii=False)
-
-
-def find_patient(pid):
-    patients = load_patients()
-    for p in patients:
-        if str(p.get("id")) == str(pid):
-            return p
-    return None
-
-
-def require_nurse(func):
-    from functools import wraps
-
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if not session.get("nurse_logged_in"):
-            return redirect(url_for("nurse_login", next=request.path))
-        return func(*args, **kwargs)
-
-    return wrapper
-
+    Doctor.create_user(app.mongo, username, hashed, email)
+    print(f"Doctor {username} created successfully.")
 
 @app.route("/")
 def index():
-    """Renders a public landing page with link to login."""
-    return render_template("index.html")
+    if current_user.is_authenticated:
+        return redirect(url_for('patient_list'))
+    return redirect(url_for('auth.login'))
 
-
-@app.route("/nurse/login", methods=["GET", "POST"])
-def nurse_login():
-    """Simple nurse login for this prototype. Replace with real auth in production."""
-    error = None
-    if request.method == "POST":
-        username = request.form.get("username")
-        password = request.form.get("password")
-        # WARNING: hardcoded credential for prototype only
-        if username == "nurse" and password == "password":
-            session["nurse_logged_in"] = True
-            return redirect(request.args.get("next") or url_for("patient_list"))
-        error = "Invalid credentials"
-    return render_template("login.html", error=error)
-
-
-@app.route("/nurse/logout")
-def nurse_logout():
-    session.pop("nurse_logged_in", None)
-    return redirect(url_for("index"))
-
-
-@app.route("/patients")
-@require_nurse
+@app.route("/dashboard")
+@login_required
 def patient_list():
-    patients = load_patients()
-    return render_template("patient_list.html", patients=patients)
-
+    query = request.args.get('search', '')
+    if query:
+        patients = Patient.search(app.mongo, query)
+    else:
+        patients = Patient.get_all(app.mongo)
+    return render_template("dashboard.html", patients=patients, search_query=query)
 
 @app.route("/patients/new", methods=["GET", "POST"])
-@require_nurse
+@login_required
 def patient_new():
     if request.method == "POST":
         data = request.form.to_dict()
-        patients = load_patients()
-        new_id = max([p.get("id", 0) for p in patients] or [0]) + 1
-        patient = {
-            "id": new_id,
-            "name": data.get("name", ""),
-            "address": data.get("address", ""),
-            "age": data.get("age", ""),
-            "height": data.get("height", ""),
-            "weight": data.get("weight", ""),
-            "previous_visit": data.get("previous_visit", ""),
-            "medical_history": data.get("medical_history", ""),
-            "prescription": data.get("prescription", ""),
-            "transcripts": [],
-        }
-        patients.append(patient)
-        save_patients(patients)
+        Patient.create(app.mongo, data)
         return redirect(url_for("patient_list"))
-    return render_template("patient_profile.html", patient=None)
+    return render_template("add_patient.html")
 
-
-@app.route("/patients/<int:pid>")
-@require_nurse
+@app.route("/patients/<pid>")
+@login_required
 def patient_view(pid):
-    patient = find_patient(pid)
+    patient = Patient.get_by_id(app.mongo, pid)
     if not patient:
         return "Patient not found", 404
     return render_template("patient_profile.html", patient=patient)
 
+@app.route("/patients/<pid>/consultation", methods=["POST"])
+@login_required
+def add_consultation(pid):
+    text = request.form.get("notes")
+    if text:
+        Patient.add_consultation(app.mongo, pid, {
+            "text": text,
+            "date": datetime.utcnow().isoformat(),
+            "doctor": current_user.username
+        })
+    return redirect(url_for("patient_view", pid=pid))
 
-@app.route("/patients/<int:pid>/edit", methods=["GET", "POST"])
-@require_nurse
-def patient_edit(pid):
-    patients = load_patients()
-    patient = find_patient(pid)
-    if not patient:
-        return "Patient not found", 404
-    if request.method == "POST":
-        data = request.form.to_dict()
-        # update fields
-        for key in ["name", "address", "age", "height", "weight", "previous_visit", "medical_history", "prescription"]:
-            patient[key] = data.get(key, patient.get(key, ""))
-        save_patients(patients)
-        return redirect(url_for("patient_view", pid=pid))
-    return render_template("patient_profile.html", patient=patient, edit=True)
+@app.route("/patients/<pid>/upload", methods=["POST"])
+@login_required
+def upload_file_route(pid):
+    if 'file' not in request.files:
+        return redirect(request.url)
+    file = request.files['file']
+    if file.filename == '':
+        return redirect(request.url)
+    if file:
+        filename = f"{pid}_{int(datetime.now().timestamp())}_{file.filename}"
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+        
+        Patient.add_file(app.mongo, pid, {
+            "filename": filename,
+            "original_name": file.filename,
+            "url": url_for('static', filename=f'uploads/{filename}')
+        })
+        
+    return redirect(url_for("patient_view", pid=pid))
 
-
-# Note: transcription page template was removed; related UI route removed.
-
-
-@app.route("/transcribe", methods=["POST"])
+@app.route("/transscribe", methods=["POST"])
 def transcribe():
-    """Handles audio upload, conversion, transcription, and optional patient association."""
-
+    # Keep transcription logic but adapt for MongoDB
+    # For now, just simplistic adaptation or keep as is but point to new Patient logic
     if "audio" not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files["audio"]
     input_path = "input.webm"
     output_path = "final.wav"
-
-    patient_id = request.form.get("patient_id") or request.args.get("patient_id")
+    patient_id = request.form.get("patient_id")
 
     try:
-        # 1. Save the recorded audio from the client
         audio_file.save(input_path)
-
-        # 2. Convert WebM (browser default) to WAV (Whisper preferred) using FFmpeg
         os.system(f'ffmpeg -y -i "{input_path}" "{output_path}"')
-
-        # 3. Transcribe audio using the Whisper model
         result = model.transcribe(output_path, language="en")
         text = result.get("text", "").strip()
-        text = text.replace("<|en|>", "").replace("<|ja|>", "")
 
-        # 4. If patient_id provided, append transcript to their history
         if patient_id:
-            patients = load_patients()
-            for p in patients:
-                if str(p.get("id")) == str(patient_id):
-                    p.setdefault("transcripts", []).append({
-                        "text": text,
-                        "timestamp": datetime.utcnow().isoformat() + "Z",
-                    })
-                    save_patients(patients)
-                    break
+            # Assuming patient_id is ObjectId str
+            Patient.add_consultation(app.mongo, patient_id, {
+                "text": text,
+                "date": datetime.utcnow().isoformat(),
+                "type": "transcription"
+            })
 
         return jsonify({"text": text})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
     finally:
-        # 5. Clean up temporary files regardless of success or failure
-        if os.path.exists(input_path):
-            os.remove(input_path)
-        if os.path.exists(output_path):
-            os.remove(output_path)
-
+        if os.path.exists(input_path): os.remove(input_path)
+        if os.path.exists(output_path): os.remove(output_path)
 
 if __name__ == "__main__":
     app.run(debug=True)

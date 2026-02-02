@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>Doctor Login - MediCore</title>
+    <title>Doctor Registration - MediCore</title>
     <style>
         :root {
             --primary: #007bff;
@@ -117,7 +117,7 @@
 <body>
     <div class="auth-container">
         <div class="logo">MediCore</div>
-        <div class="subtitle">Secure Doctor Portal</div>
+        <div class="subtitle">Doctor Registration</div>
 
         {% with messages = get_flashed_messages() %}
         {% if messages %}
@@ -129,18 +129,22 @@
         {% endif %}
         {% endwith %}
 
-        <form method="POST" action="{{ url_for('auth.login') }}">
+        <form method="POST" action="{{ url_for('auth.register') }}">
             <div class="form-group">
                 <label>Username</label>
-                <input type="text" name="username" placeholder="Enter your username" required>
+                <input type="text" name="username" required>
+            </div>
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" name="email" required>
             </div>
             <div class="form-group">
                 <label>Password</label>
-                <input type="password" name="password" placeholder="Enter your password" required>
+                <input type="password" name="password" required>
             </div>
-            <button type="submit">Login</button>
+            <button type="submit">Create Account</button>
         </form>
-        <a href="{{ url_for('auth.register') }}" class="footer-link">Don't have an account? Sign Up</a>
+        <a href="{{ url_for('auth.login') }}" class="footer-link">Already have an account? Login</a>
     </div>
 </body>
 
