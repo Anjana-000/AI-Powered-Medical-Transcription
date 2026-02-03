@@ -1,5 +1,6 @@
 import os
 import whisper
+import uuid
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, current_app, send_from_directory
 from flask_pymongo import PyMongo
@@ -91,11 +92,18 @@ def add_consultation(pid):
     text = request.form.get("notes")
     if text:
         Patient.add_consultation(app.mongo, pid, {
+            "id": uuid.uuid4().hex,
             "text": text,
             "date": datetime.utcnow().isoformat(),
             "doctor": current_user.username
         })
-    return redirect(url_for("patient_view", pid=pid))
+    return redirect(url_for("patient_view", pid=pid, tab='consultation'))
+
+@app.route("/patients/<pid>/consultation/<cid>/delete", methods=["POST"])
+@login_required
+def delete_consultation(pid, cid):
+    Patient.delete_consultation(app.mongo, pid, cid)
+    return redirect(url_for("patient_view", pid=pid, tab='consultation'))
 
 @app.route("/patients/<pid>/upload", methods=["POST"])
 @login_required
@@ -136,13 +144,13 @@ def transcribe():
         result = model.transcribe(output_path, language="en")
         text = result.get("text", "").strip()
 
-        if patient_id:
-            # Assuming patient_id is ObjectId str
-            Patient.add_consultation(app.mongo, patient_id, {
-                "text": text,
-                "date": datetime.utcnow().isoformat(),
-                "type": "transcription"
-            })
+        # if patient_id:
+        #     # Assuming patient_id is ObjectId str
+        #     Patient.add_consultation(app.mongo, patient_id, {
+        #         "text": text,
+        #         "date": datetime.utcnow().isoformat(),
+        #         "type": "transcription"
+        #     })
 
         return jsonify({"text": text})
 

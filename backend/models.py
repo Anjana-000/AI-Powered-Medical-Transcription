@@ -2,6 +2,7 @@ from flask_login import UserMixin
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from datetime import datetime
+import uuid
 
 class Doctor(UserMixin):
     def __init__(self, user_data):
@@ -46,7 +47,16 @@ class Patient:
     @staticmethod
     def get_by_id(mongo, patient_id):
         try:
-            return mongo.db.patients.find_one({"_id": ObjectId(patient_id)})
+            patient = mongo.db.patients.find_one({"_id": ObjectId(patient_id)})
+            if patient and 'consultations' in patient:
+                updated = False
+                for c in patient['consultations']:
+                    if 'id' not in c:
+                        c['id'] = uuid.uuid4().hex
+                        updated = True
+                if updated:
+                     mongo.db.patients.update_one({"_id": ObjectId(patient_id)}, {"$set": {"consultations": patient['consultations']}})
+            return patient
         except:
             return None
 
@@ -65,6 +75,13 @@ class Patient:
         return mongo.db.patients.update_one(
             {"_id": ObjectId(patient_id)},
             {"$push": {"consultations": consultation_data}}
+        )
+
+    @staticmethod
+    def delete_consultation(mongo, patient_id, consultation_id):
+        return mongo.db.patients.update_one(
+            {"_id": ObjectId(patient_id)},
+            {"$pull": {"consultations": {"id": consultation_id}}}
         )
 
     @staticmethod
