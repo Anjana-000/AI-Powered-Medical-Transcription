@@ -148,37 +148,74 @@ def upload_file_route(pid):
 
 @app.route("/transscribe", methods=["POST"])
 def transcribe():
-    # Keep transcription logic but adapt for MongoDB
-    # For now, just simplistic adaptation or keep as is but point to new Patient logic
     if "audio" not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
     audio_file = request.files["audio"]
-    input_path = "input.webm"
-    output_path = "final.wav"
-    patient_id = request.form.get("patient_id")
+    if audio_file.filename == '':
+        return jsonify({"error": "Empty filename"}), 400
+
+    unique_id = uuid.uuid4().hex
+    input_filename = f"temp_input_{unique_id}_{audio_file.filename}"
+    output_filename = f"temp_output_{unique_id}.wav"
+    
+    input_path = os.path.join(app.config['UPLOAD_FOLDER'], input_filename)
+    output_path = os.path.join(app.config['UPLOAD_FOLDER'], output_filename)
 
     try:
         audio_file.save(input_path)
-        os.system(f'ffmpeg -y -i "{input_path}" "{output_path}"')
-        result = model.transcribe(output_path, language="en")
-        text = result.get("text", "").strip()
+        
+        if not os.path.exists(input_path) or os.path.getsize(input_path) < 100:
+             print(f"DEBUG: Saved file is too small: {os.path.getsize(input_path)} bytes")
+             return jsonify({"error": "File save failed or empty file. Size < 100 bytes"}), 400
 
-        # if patient_id:
-        #     # Assuming patient_id is ObjectId str
-        #     Patient.add_consultation(app.mongo, patient_id, {
-        #         "text": text,
-        #         "date": datetime.utcnow().isoformat(),
-        #         "type": "transcription"
-        #     })
+        # Use subprocess to capture ffmpeg output and ensure it runs
+        import subprocess
+        command = [
+            'ffmpeg', '-y', 
+            '-i', input_path, 
+            '-ar', '16000', 
+            '-ac', '1', 
+            '-c:a', 'pcm_s16le', 
+            output_path
+        ]
+        
+        print(f"DEBUG: Running ffmpeg: {' '.join(command)}")
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            print("DEBUG: ffmpeg stdout:", result.stdout)
+            print("DEBUG: ffmpeg stderr:", result.stderr)
+        except subprocess.CalledProcessError as e:
+            print("ERROR: ffmpeg failed")
+            print("STDOUT:", e.stdout)
+            print("STDERR:", e.stderr)
+            return jsonify({"error": f"Audio processing failed: {e.stderr}"}), 500
+        except FileNotFoundError:
+            return jsonify({"error": "ffmpeg not found on server. Please install ffmpeg."}), 500
+
+        if not os.path.exists(output_path) or os.path.getsize(output_path) < 100:
+             print(f"DEBUG: Output WAV too small: {os.path.getsize(output_path) if os.path.exists(output_path) else 'Missing'}")
+             return jsonify({"error": "Converted audio file is empty or corrupted"}), 500
+
+        print(f"DEBUG: Transcription starting for {output_path}")
+        result = model.transcribe(output_path, language="en", fp16=False) # Disable fp16 for CPU safety
+        text = result.get("text", "").strip()
+        print(f"DEBUG: Transcription result: {text[:50]}...")
 
         return jsonify({"text": text})
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Server Error: {str(e)}"}), 500
     finally:
-        if os.path.exists(input_path): os.remove(input_path)
-        if os.path.exists(output_path): os.remove(output_path)
+        # Cleanup
+        if os.path.exists(input_path):
+            try: os.remove(input_path)
+            except: pass
+        if os.path.exists(output_path):
+            try: os.remove(output_path)
+            except: pass
 
 if __name__ == "__main__":
     app.run(debug=True)

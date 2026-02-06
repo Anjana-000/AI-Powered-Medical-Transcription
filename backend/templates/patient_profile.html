@@ -138,6 +138,19 @@
 
 					<div class="flex flex-wrap justify-between items-center mt-4 gap-2">
 						<div class="flex items-center gap-2">
+							<!-- Audio Upload -->
+							<label
+								class="cursor-pointer text-slate-500 hover:text-slate-700 p-2 rounded hover:bg-slate-100"
+								title="Upload Audio">
+								<input type="file" id="audioUpload" accept="audio/*" class="hidden"
+									onchange="uploadAudio(this)">
+								<svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+									stroke="currentColor">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+										d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+								</svg>
+							</label>
+
 							<button type="button" onclick="printSection()"
 								class="text-slate-500 hover:text-slate-700 p-2 rounded hover:bg-slate-100"
 								title="Print">
@@ -587,6 +600,43 @@
 		} else if (method === 'whatsapp') {
 			window.open(`https://wa.me/?text=${text}`, '_blank');
 		}
+	}
+
+	// Audio Upload Logic
+	async function uploadAudio(input) {
+		const file = input.files[0];
+		if (!file) return;
+
+		const status = document.getElementById('status');
+		const textBox = document.getElementById('transcriptionText');
+
+		status.textContent = 'Uploading & Transcribing...';
+
+		const formData = new FormData();
+		formData.append('audio', file);
+		formData.append('patient_id', '{{ patient._id }}');
+
+		try {
+			const response = await fetch('/transscribe', {
+				method: 'POST',
+				body: formData
+			});
+			const result = await response.json();
+
+			if (result.text) {
+				const currentText = textBox.value;
+				textBox.value = currentText ? currentText + "\n" + result.text : result.text;
+				status.textContent = 'Transcription complete.';
+			} else {
+				status.textContent = 'Error: ' + result.error;
+			}
+		} catch (err) {
+			status.textContent = 'Network error.';
+			console.error(err);
+		}
+
+		// Reset input
+		input.value = '';
 	}
 
 	// Audio Recording Logic
