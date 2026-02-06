@@ -10,8 +10,13 @@ from bson.objectid import ObjectId
 
 from auth import auth, init_auth
 from models import Doctor, Patient
+import os
+from flask import Flask
+
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 app = Flask(__name__)
+
 app.secret_key = os.environ.get("FLASK_SECRET", "dev-secret")
 
 # MongoDB Config
@@ -33,6 +38,16 @@ app.register_blueprint(auth)
 UPLOAD_FOLDER = os.path.join(os.path.dirname(__file__), "static", "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Custom Template Filter for Time
+@app.template_filter('format_time')
+def format_time(value):
+    try:
+        if not value: return ""
+        dt = datetime.fromisoformat(value)
+        return dt.strftime("%I:%M %p")
+    except ValueError:
+        return value
 
 # Load Whisper (kept from original)
 model = whisper.load_model("small")
@@ -78,9 +93,14 @@ def patient_new():
         return redirect(url_for("patient_list"))
     return render_template("add_patient.html")
 
-@app.route("/patients/<pid>")
+@app.route("/patients/<pid>", methods=["GET", "PUT"])
 @login_required
 def patient_view(pid):
+    if request.method == "PUT":
+        data = request.json
+        Patient.update(app.mongo, pid, data)
+        return jsonify({"success": True})
+
     patient = Patient.get_by_id(app.mongo, pid)
     if not patient:
         return "Patient not found", 404
@@ -94,7 +114,7 @@ def add_consultation(pid):
         Patient.add_consultation(app.mongo, pid, {
             "id": uuid.uuid4().hex,
             "text": text,
-            "date": datetime.utcnow().isoformat(),
+            "date": datetime.now().isoformat(),
             "doctor": current_user.username
         })
     return redirect(url_for("patient_view", pid=pid, tab='consultation'))

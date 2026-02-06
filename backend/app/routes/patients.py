@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from ..database import patient_collection
-from ..models import PatientModel, PatientResponse
+from ..models import PatientModel, PatientResponse, PatientUpdateModel
 from ..auth import get_current_user
 from bson import ObjectId
 
@@ -46,3 +46,25 @@ async def get_patient(id: str, current_user: dict = Depends(get_current_user)):
              raise HTTPException(status_code=403, detail="Not authorized to view this patient")
         return patient_helper(patient)
     raise HTTPException(status_code=404, detail="Patient not found")
+
+@router.put("/{id}", response_model=PatientResponse)
+async def update_patient(id: str, patient_update: PatientUpdateModel, current_user: dict = Depends(get_current_user)):
+    # Verify patient exists and belongs to doctor
+    existing_patient = await patient_collection.find_one({"_id": ObjectId(id)})
+    if not existing_patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+        
+    if existing_patient["doctor_id"] != str(current_user["_id"]):
+        raise HTTPException(status_code=403, detail="Not authorized to update this patient")
+
+    # Filter out None values to only update provided fields
+    update_data = {k: v for k, v in patient_update.dict().items() if v is not None}
+
+    if update_data:
+        await patient_collection.update_one(
+            {"_id": ObjectId(id)},
+            {"$set": update_data}
+        )
+        
+    updated_patient = await patient_collection.find_one({"_id": ObjectId(id)})
+    return patient_helper(updated_patient)

@@ -18,6 +18,21 @@ class PatientModel(BaseModel):
     gender: str = Field(...)
     contact: str = Field(...)
     medical_history: Optional[str] = None
+    address: Optional[str] = None
+    height: Optional[str] = None
+    weight: Optional[str] = None
+    sleeping_hours: Optional[str] = None
+
+class PatientUpdateModel(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = None
+    gender: Optional[str] = None
+    contact: Optional[str] = None
+    medical_history: Optional[str] = None
+    address: Optional[str] = None
+    height: Optional[str] = None
+    weight: Optional[str] = None
+    sleeping_hours: Optional[str] = None
 
 class PatientResponse(PatientModel):
     id: str

@@ -35,7 +35,7 @@ class Doctor(UserMixin):
 class Patient:
     @staticmethod
     def create(mongo, data):
-        data['created_at'] = datetime.utcnow()
+        data['created_at'] = datetime.now()
         data['consultations'] = []
         data['files'] = []
         return mongo.db.patients.insert_one(data)

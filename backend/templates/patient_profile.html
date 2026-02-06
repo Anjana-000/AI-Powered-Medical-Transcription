@@ -27,7 +27,7 @@
 				class="px-4 py-2 text-slate-600 hover:text-slate-800 hover:bg-slate-50 rounded-lg transition-colors text-sm font-medium">
 				&larr; Back to Dashboard
 			</a>
-			<button
+			<button onclick="openEditModal()"
 				class="bg-teal-600 hover:bg-teal-700 text-white px-5 py-2 rounded-lg shadow-sm transition-all text-sm font-medium flex items-center gap-2">
 				<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
 					stroke="currentColor">
@@ -209,24 +209,22 @@
 						<div class="flex justify-between items-start mb-2">
 							<div class="flex flex-col">
 								<span class="text-sm font-bold text-slate-800">{{ item.date[:10] }}</span>
-								<span class="text-xs text-slate-500">{{ item.date[11:16] }}</span>
+								<span class="text-xs text-slate-500">{{ item.date|format_time }}</span>
 							</div>
 							<div class="flex items-center gap-2">
 								<span class="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full">{{
 									item.type|default('Clinical Note') }}</span>
 								{% if item.id %}
-								<form action="{{ url_for('delete_consultation', pid=patient._id, cid=item.id) }}"
-									method="POST" onsubmit="return confirm('Delete this note?');"
-									style="display:inline;">
-									<button type="submit"
-										class="text-slate-400 hover:text-red-500 p-1 transition-opacity" title="Delete">
-										<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-											viewBox="0 0 24 24" stroke="currentColor">
-											<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-												d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-										</svg>
-									</button>
-								</form>
+								<button type="button"
+									data-url="{{ url_for('delete_consultation', pid=patient._id, cid=item.id) }}"
+									onclick="openDeleteModal(this.dataset.url)"
+									class="text-slate-400 hover:text-red-500 p-1 transition-opacity" title="Delete">
+									<svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
+										viewBox="0 0 24 24" stroke="currentColor">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+											d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+									</svg>
+								</button>
 								{% endif %}
 							</div>
 						</div>
@@ -343,9 +341,198 @@
 		</div>
 	</div>
 
+	<!-- Edit Patient Modal -->
+	<div id="editPatientModal"
+		class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center animate-fade-in backdrop-blur-sm">
+		<div
+			class="bg-white rounded-xl shadow-2xl w-full max-w-2xl p-0 overflow-hidden transform transition-all scale-100 m-4">
+			<div class="bg-teal-600 p-6 flex justify-between items-center text-white">
+				<h3 class="text-xl font-bold">Edit Patient Profile</h3>
+				<button onclick="closeEditModal()" class="hover:bg-teal-700 p-2 rounded-full transition-colors">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24"
+						stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+							d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</button>
+			</div>
+
+			<form id="editPatientForm" class="p-8 max-h-[80vh] overflow-y-auto" autocomplete="off">
+				<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+					<!-- Name -->
+					<div class="col-span-full">
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Full Name</label>
+						<input type="text" name="name" value="{{ patient.name }}" required
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
+					</div>
+
+					<!-- Age & Gender -->
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Age</label>
+						<input type="number" name="age" value="{{ patient.age }}" required
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
+					</div>
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Gender</label>
+						<select name="gender" required
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
+							<option value="Male" {% if patient.gender=='Male' %}selected{% endif %}>Male</option>
+							<option value="Female" {% if patient.gender=='Female' %}selected{% endif %}>Female</option>
+							<option value="Other" {% if patient.gender=='Other' %}selected{% endif %}>Other</option>
+						</select>
+					</div>
+
+					<!-- Contact -->
+					<div class="col-span-full">
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Contact Number</label>
+						<input type="tel" name="contact" value="{{ patient.contact }}" required
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
+					</div>
+
+					<!-- Address -->
+					<div class="col-span-full">
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Address</label>
+						<textarea name="address" rows="2"
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">{{ patient.get('address', '') }}</textarea>
+					</div>
+
+					<!-- Vitals -->
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Height (cm)</label>
+						<input type="text" name="height" value="{{ patient.get('height', '') }}"
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
+					</div>
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Weight (kg)</label>
+						<input type="text" name="weight" value="{{ patient.get('weight', '') }}"
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
+					</div>
+					<div>
+						<label class="block text-sm font-semibold text-slate-700 mb-2">Sleeping Hours</label>
+						<input type="text" name="sleeping_hours" value="{{ patient.get('sleeping_hours', '') }}"
+							class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-colors">
+					</div>
+				</div>
+
+				<div class="mt-8 flex justify-end gap-3 pt-6 border-t border-slate-100">
+					<button type="button" onclick="closeEditModal()"
+						class="px-6 py-2.5 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition-colors">
+						Cancel
+					</button>
+					<button type="submit" id="savePatientBtn"
+						class="px-6 py-2.5 bg-teal-600 text-white rounded-lg font-medium hover:bg-teal-700 shadow-lg hover:shadow-teal-500/30 transition-all flex items-center justify-center min-w-[100px]">
+						<span>Save Changes</span>
+					</button>
+				</div>
+			</form>
+		</div>
+	</div>
+
+	<!-- Delete Confirmation Modal -->
+	<div id="deleteModal"
+		class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center animate-fade-in">
+		<div class="bg-white rounded-xl shadow-lg w-full max-w-md p-6 transform transition-all scale-100">
+			<div class="text-center">
+				<div class="bg-red-50 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+					<svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-red-500" fill="none" viewBox="0 0 24 24"
+						stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+							d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+					</svg>
+				</div>
+				<h3 class="text-lg font-bold text-slate-800 mb-2">Confirm Delete</h3>
+				<p class="text-slate-500 text-sm mb-6">Are you sure you want to delete this consultation note? This
+					action cannot be undone.</p>
+
+				<form id="deleteForm" method="POST" class="flex gap-3 justify-center">
+					<button type="button" onclick="closeDeleteModal()"
+						class="px-5 py-2.5 bg-white border border-slate-300 rounded-lg text-slate-700 text-sm font-medium hover:bg-slate-50 transition-colors">
+						Cancel
+					</button>
+					<button type="submit"
+						class="px-5 py-2.5 bg-red-600 rounded-lg text-white text-sm font-medium hover:bg-red-700 shadow-sm transition-colors">
+						Yes, Delete
+					</button>
+				</form>
+			</div>
+		</div>
+	</div>
+
 </div>
 
 <script>
+	// Edit Patient Modal Logic
+	function openEditModal() {
+		const form = document.getElementById('editPatientForm');
+		const btn = document.getElementById('savePatientBtn');
+
+		// Reset form to server-provided values (HTML attributes)
+		form.reset();
+
+		// Ensure button is enabled and has correct text
+		btn.disabled = false;
+		btn.innerHTML = '<span>Save Changes</span>';
+
+		document.getElementById('editPatientModal').classList.remove('hidden');
+	}
+
+	function closeEditModal() {
+		document.getElementById('editPatientModal').classList.add('hidden');
+	}
+
+	document.getElementById('editPatientModal').addEventListener('click', function (e) {
+		if (e.target === this) {
+			closeEditModal();
+		}
+	});
+
+	document.getElementById('editPatientForm').addEventListener('submit', async function (e) {
+		e.preventDefault();
+		const btn = document.getElementById('savePatientBtn');
+		const originalText = btn.innerHTML;
+		btn.innerHTML = '<svg class="animate-spin h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>';
+		btn.disabled = true;
+
+		const formData = new FormData(this);
+		const data = Object.fromEntries(formData.entries());
+
+		// Convert numbers
+		data.age = parseInt(data.age);
+
+		try {
+			const response = await fetch('/patients/{{ patient._id }}', {
+				method: 'PUT',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify(data)
+			});
+
+			if (response.ok) {
+				window.location.reload();
+			} else {
+				alert('Failed to update profile. Please try again.');
+				btn.innerHTML = originalText;
+				btn.disabled = false;
+			}
+		} catch (error) {
+			console.error('Error:', error);
+			alert('An error occurred. Please check console.');
+			btn.innerHTML = originalText;
+			btn.disabled = false;
+		}
+	});
+
+	// Modal Logic
+	function openDeleteModal(url) {
+		document.getElementById('deleteForm').action = url;
+		document.getElementById('deleteModal').classList.remove('hidden');
+	}
+
+	function closeDeleteModal() {
+		document.getElementById('deleteModal').classList.add('hidden');
+	}
+
 	// Tab Switching Logic
 	function switchTab(tabName) {
 		// Hide all content
